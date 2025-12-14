@@ -2,11 +2,21 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import "../src/Vesting.sol";
 
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockToken is ERC20 {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
+
+    function mint(address to, uint256 amount) public {
+        _mint(to, amount);
+    }
+}
+
+
 contract VestingTest is Test {
-    ERC20PresetMinterPauser token;
+    MockToken token;
     Vesting vesting;
 
     address beneficiary = address(0xBEEF);
@@ -15,7 +25,7 @@ contract VestingTest is Test {
     uint256 constant TOTAL = 1_000_000e18;
 
     function setUp() public {
-        token = new ERC20PresetMinterPauser("MockToken", "MTK");
+        token = new MockToken("MockToken", "MTK");
 
         vesting = new Vesting(
             beneficiary,
@@ -29,7 +39,7 @@ contract VestingTest is Test {
     }
 
     function test_BeforeCliff_NoRelease() public {
-        vm.warp(vesting.start() + 11 * Vesting.MONTH());
+        vm.warp(vesting.start() + 11 * vesting.MONTH());
 
         assertEq(vesting.releasable(), 0);
         vm.expectRevert(Vesting.NothingToRelease.selector);
@@ -47,7 +57,7 @@ contract VestingTest is Test {
     }
 
     function test_SixMonthsAfterCliff() public {
-        vm.warp(vesting.cliff() + 5 * Vesting.MONTH() + 1);
+        vm.warp(vesting.cliff() + 5 * vesting.MONTH() + 1);
 
         uint256 expected = (TOTAL * 6) / 24;
         vesting.release();
